@@ -5,9 +5,9 @@ import {createCanvas} from 'canvas'
 import {exec} from 'child_process';
 /*
 欽定龍藏 1024x1363
+538 增一阿含
+539 中阿含
 540 雜阿含
-539 增一阿含
-540 中阿含
 541 長阿含
 */
 
