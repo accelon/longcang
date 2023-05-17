@@ -9,12 +9,11 @@ const taisho_longcang=JSON.parse(readTextContent('sutramap-2-59.json'));
 const longcang_taisho=JSON.parse(readTextContent('sutramap-59-2.json'));
 
 const wanted={
-    '0538':'',
-    '0539':'',
-    '0540':'',
+    // '0538':'',
+    // '0539':'',
+    // '0540':'',
     '0541':'',
 }
-
 
 const srcfn='agama.xml';//taisho-longcang.xml' ; //取自 道中法師 龍藏頁碼
 
@@ -23,20 +22,51 @@ const splitPage=page=>{
     const out=[];
     let i=0,line='',chicount=0;
     const chars=splitUTF32Char(page);
+    const emitline=()=>{
+        out.push(line);
+        chicount=0;
+        line='';
+    }
     while (i<chars.length) {
-        if (chars[i]!=='§') line+=chars[i];
-        if (chars[i]=='[') {
-            while (chars[i]!==']' && i<chars.length) i++;//skip missing character
-        }
-        if (!isPunc(chars[i]) && chars[i].charCodeAt(0)>=0x3400 ) {
-            chicount++;
+        if (chars[i]!=='§' && chars[i]!=='﹞' && chars[i]!=='﹝') {
+            line+=chars[i];
+        }   else if (chars[i]=='[') {
+            i++;
+            let mc='';
+            while (chars[i]!==']' && i<chars.length) {
+                mc+=chars[i];
+                i++;//skip missing character
+            }
+            //缺字
+        } else if (chars[i]=='﹝') {
+            emitline();
+            let gatha=''
+            while (i<chars.length) {
+                i++;
+                if (chars[i]!=='﹞') {
+                    if (chars[i]!=='§') gatha+=chars[i]||'';
+                } else {
+                    i++;
+                    break;
+                }
+            }
+            const gathas=gatha.split(/　+/).filter(it=>!!it.trim());
+            for (let j=0;j<Math.floor(gathas.length/3)+1;j++){
+                const g1=gathas[j*3]||'',g2=gathas[j*3+1], g3=gathas[j*3+2];
+                out.push(g1+(g2?'　'+g2:'')+(g3?'　'+g3:''));
+            }
         }
 
         const forcebreak=(chars[i]=='§');
+
+        const cp=chars[i]?.charCodeAt(0);
+        
+        if ((!isPunc(chars[i]) && cp>=0x3400)) { //leading fullwidth blank not counted
+            chicount++;
+        }
+
         if (forcebreak || chicount>=17) {
-            out.push(line);
-            chicount=0;
-            line='';
+            emitline();
         }
         i++;
     }
@@ -55,10 +85,14 @@ const splitPage=page=>{
 let writefn='',emit=false;
 
 const emitfile=(lines)=>{
-    writeChanged(writefn,lines.join('\n'),true);
+    writeChanged('off/'+writefn,lines.join('\n'),true);
+}
+const isGatha=linetext=>{
+    const chars=splitUTF32Char(linetext.replace(/\[[^\]]+\]/g,'●').replace('　　','$').replace('　',''));
+    return (chars.length==11 && chars[5]=='$')
 }
 const doLines=lines=>{
-    let page='', prevno,prevjuan;
+    let page='', prevno,prevjuan,previsgatha;
     let juantext=[],out=[];
     for (let i=0;i<lines.length;i++) {
         let line=lines[i];
@@ -81,25 +115,33 @@ const doLines=lines=>{
                     }
                     emit=wanted.hasOwnProperty( taisho_longcang[vnp.no]);
                     writefn=emit?'ql'+parseInt(taisho_longcang[vnp.no])+'.off':'';
-                    if (emit) out.push('^no '+vnp.no);
                 }
                 if (prevno && prevjuan) {
-                    if (emit) out.push('^juan'+prevjuan);
+                    if (emit) out.push('^juan'+prevjuan+'^pb');
                     if (emit) out.push(juantext.join('\n'));
                     juantext=[]; 
                 }
             }
-
-            
             prevno=vnp.no;
             prevjuan=juan;
         }
         
         if (emit) {
             let text=line.slice(18);
-            if (text.startsWith('　') || text.startsWith('（') ) text='§'+text;
-            if (text.lastIndexOf('　　')>2) text+='§'; //gatha
-            else if (~text.indexOf('【□】')) text+='§';
+            if (isGatha(text)) {
+                if (!previsgatha) {
+                    text='﹝'+text;
+                }
+                text=text.replace('　　','　');
+                previsgatha=true;
+            } else {
+                if (previsgatha) {
+                    previsgatha=false;
+                    text='﹞'+text;
+                }                
+                if (text.startsWith('　') || text.startsWith('（') ) text='§'+text;
+                else if (~text.indexOf('【□】')) text+='§';    
+            }
 
             text=text.replace(/（([一二三四五六七八九十○]+)）/,(m,m1)=>{
                 return '^n'+fromChineseNumber(m1);
