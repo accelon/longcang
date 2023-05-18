@@ -9,13 +9,31 @@ const taisho_longcang=JSON.parse(readTextContent('sutramap-2-59.json'));
 const longcang_taisho=JSON.parse(readTextContent('sutramap-59-2.json'));
 
 const wanted={
-    // '0538':'',
-    // '0539':'',
-    // '0540':'',
+     '0538':'',
+     '0539':'',
+     '0540':'',
     '0541':'',
 }
-
+const gaijifn='cbeta_gaiji.csv'
 const srcfn='agama.xml';//taisho-longcang.xml' ; //取自 道中法師 龍藏頁碼
+const gaiji={'[菟-(色-巴)+(〦-一)]':'菟' ,'[少/(兔-、)]':'㝹','[(畾/且)*毛]':'㲲','[楑-天+示]':'𣘤'};
+
+const downloadrequirefiles=async()=>{
+    let lines=[];
+    if (!fs.existsSync(gaijifn)) {
+        const resp=await fetch('https://raw.githubusercontent.com/cbeta-org/cbeta_gaiji/master/cbeta_gaiji.csv');
+        content=await resp.text();
+        writeChanged(gaijifn,content,true);
+        lines=content.split(/\r?\n/)
+    } else {
+        lines=readTextLines(gaijifn)
+    }
+    const rows=lines.map(it=>it.split('\t'));
+    for (let i=0;i<rows.length;i++) {
+        const [id,unicode,uni_char,norm_uni_code,nor_uni_char,composition]=rows[i];
+        if (!gaiji[composition]) gaiji[composition]=uni_char || nor_uni_char;
+    }
+}
 
 const splitPage=page=>{
     if (!page) return [];
@@ -28,15 +46,25 @@ const splitPage=page=>{
         line='';
     }
     while (i<chars.length) {
-        if (chars[i]!=='§' && chars[i]!=='﹞' && chars[i]!=='﹝') {
-            line+=chars[i];
-        }   else if (chars[i]=='[') {
+        if (chars[i]=='[') {
             i++;
-            let mc='';
+            let mc='[';
             while (chars[i]!==']' && i<chars.length) {
                 mc+=chars[i];
                 i++;//skip missing character
             }
+            mc+=']';
+            
+            const uni=gaiji[mc];
+            if (!uni) {
+                console.log('unknown gaiji',mc,line);
+                line+='㉆';
+            } else {
+                line+=uni;
+            }
+            i++;
+        } else if (chars[i]!=='§' && chars[i]!=='﹞' && chars[i]!=='﹝') {
+            line+=chars[i];
             //缺字
         } else if (chars[i]=='﹝') {
             emitline();
@@ -53,7 +81,7 @@ const splitPage=page=>{
             const gathas=gatha.split(/　+/).filter(it=>!!it.trim());
             for (let j=0;j<Math.floor(gathas.length/3)+1;j++){
                 const g1=gathas[j*3]||'',g2=gathas[j*3+1], g3=gathas[j*3+2];
-                out.push(g1+(g2?'　'+g2:'')+(g3?'　'+g3:''));
+                if (g1) out.push(g1+(g2?'　'+g2:'')+(g3?'　'+g3:''));
             }
         }
 
@@ -61,7 +89,7 @@ const splitPage=page=>{
 
         const cp=chars[i]?.charCodeAt(0);
         
-        if ((!isPunc(chars[i]) && cp>=0x3400)) { //leading fullwidth blank not counted
+        if (!isPunc(chars[i]) && (cp>=0x3400||cp==0x3246)) { //leading fullwidth blank not counted
             chicount++;
         }
 
@@ -74,9 +102,9 @@ const splitPage=page=>{
 
     const lines=out.join('\n').replace(/\n。/g,'。\n').replace(/\n．/g,'．\n').replace(/\n+/g,'\n').split('\n')
     //const should be 15
-    if (lines[0]) lines[0]='^pb '+lines[0];
-    if(lines[5])lines[5]='^pb '+lines[5];
-    if(lines[10]) lines[10]='^pb '+lines[10];
+    if (lines[0]) lines[0]='^pb'+lines[0];
+    if(lines[5])lines[5]='^pb'+lines[5];
+    if(lines[10]) lines[10]='^pb'+lines[10];
     return lines;
 }
 /*
@@ -158,6 +186,6 @@ const doLines=lines=>{
     }
     //注意最後一經不會輸出
 }
-
+downloadrequirefiles();
 const lines=readTextLines(srcfn);
 doLines(lines);
