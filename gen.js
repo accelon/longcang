@@ -142,7 +142,7 @@ const doLines=lines=>{
                         out.length=0;
                     }
                     emit=wanted.hasOwnProperty( taisho_longcang[vnp.no]);
-                    writefn=emit?'ql'+parseInt(taisho_longcang[vnp.no])+'.off':'';
+                    writefn=emit?'ql'+parseInt(taisho_longcang[vnp.no])+'.ori.off':'';
                 }
                 if (prevno && prevjuan) {
                     if (emit) out.push('^juan'+prevjuan+'^pb');
