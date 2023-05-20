@@ -41,7 +41,10 @@ const splitPage=page=>{
     let i=0,line='',chicount=0;
     const chars=splitUTF32Char(page);
     const emitline=()=>{
-        out.push(line);
+        if (~line.indexOf('壽命二萬歲')) {
+            console.log(line)
+        }
+        if (line) out.push(line);
         chicount=0;
         line='';
     }
@@ -63,32 +66,34 @@ const splitPage=page=>{
                 line+=uni;
             }
             i++;
-        } else if (chars[i]!=='§' && chars[i]!=='﹞' && chars[i]!=='﹝') {
+        } else if (chars[i]!=='§' && chars[i]!=='﹄' && chars[i]!=='﹃') {
             line+=chars[i];
             //缺字
-        } else if (chars[i]=='﹝') {
+        } else if (chars[i]=='﹃') {
             emitline();
             let gatha=''
+            i++;
             while (i<chars.length) {
-                i++;
-                if (chars[i]!=='﹞') {
+                if (chars[i]!=='﹄') {
                     if (chars[i]!=='§') gatha+=chars[i]||'';
                 } else {
-                    i++;
                     break;
                 }
+                i++;
             }
             const gathas=gatha.split(/　+/).filter(it=>!!it.trim());
             for (let j=0;j<Math.floor(gathas.length/3)+1;j++){
                 const g1=gathas[j*3]||'',g2=gathas[j*3+1], g3=gathas[j*3+2];
                 if (g1) out.push(g1+(g2?'　'+g2:'')+(g3?'　'+g3:''));
+                if (g2=='記於過去佛') {
+                    debugger
+                }
             }
         }
 
         const forcebreak=(chars[i]=='§');
 
         const cp=chars[i]?.charCodeAt(0);
-        
         if (!isPunc(chars[i]) && (cp>=0x3400||cp==0x3246)) { //leading fullwidth blank not counted
             chicount++;
         }
@@ -98,9 +103,11 @@ const splitPage=page=>{
         }
         i++;
     }
-    if (line) out.push(line);
+    emitline();
 
-    const lines=out.join('\n').replace(/\n。/g,'。\n').replace(/\n．/g,'．\n').replace(/\n+/g,'\n').split('\n')
+    const lines=out.join('\n').replace(/\n。/g,'。\n').replace(/\n．/g,'．\n').replace(/\n+/g,'\n')
+    .replace(/【□】/g,'').replace(/【○】/g,'').replace(/【■】/g,'')
+    .split('\n')
     //const should be 15
     if (lines[0]) lines[0]='^pb'+lines[0];
     if(lines[5])lines[5]='^pb'+lines[5];
@@ -158,14 +165,14 @@ const doLines=lines=>{
             let text=line.slice(18);
             if (isGatha(text)) {
                 if (!previsgatha) {
-                    text='﹝'+text;
+                    text='﹃'+text;
                 }
                 text=text.replace('　　','　');
                 previsgatha=true;
             } else {
                 if (previsgatha) {
                     previsgatha=false;
-                    text='﹞'+text;
+                    text='﹄'+text;
                 }                
                 if (text.startsWith('　') || text.startsWith('（') ) text='§'+text;
                 else if (~text.indexOf('【□】')) text+='§';    
